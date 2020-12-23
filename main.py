@@ -23,6 +23,8 @@ clock = pygame.time.Clock()
 game_folder = os.path.dirname(__file__)
 img_folder = os.path.join(game_folder, "img")
 bg = pygame.image.load(f'{img_folder}/bg.jpg').convert()
+bg2 = pygame.image.load(f'{img_folder}/bg2.jpg').convert()
+bg2_duplicate = bg2.copy()
 
 
 class Player(pygame.sprite.Sprite):
@@ -79,7 +81,6 @@ class Player(pygame.sprite.Sprite):
 
 
 class Obstacle(pygame.sprite.Sprite):
-    count = 0
     woodenBox50x50 = pygame.image.load(f'{img_folder}/woodenBox50x50.png').convert()
     woodenBox100x50 = pygame.image.load(f'{img_folder}/woodenBox100x50.png').convert()
     metalBoxBlue50x50 = pygame.image.load(f'{img_folder}/metalBoxBlue50x50.png').convert()
@@ -89,8 +90,9 @@ class Obstacle(pygame.sprite.Sprite):
 
     def __init__(self, x, y, width, height, s, type='box'):
         pygame.sprite.Sprite.__init__(self)
-        self.is_fly = True
+        self.is_flying = False
         if type == "box":
+            self.is_flying = True
             self.image = random.choice([Obstacle.woodenBox50x50,
                                         Obstacle.woodenBox100x50,
                                         Obstacle.metalBoxBlue50x50,
@@ -109,11 +111,14 @@ class Obstacle(pygame.sprite.Sprite):
             self.rect.x, self.rect.y = x, y
 
         self.speedy = s
-        Obstacle.count += 1
 
     def update(self, objects):
         self.rect.y += self.speedy
         self.collisions(self.speedy, objects)
+        if self.rect.y == 600 and self.is_flying:
+            self.rect.bottom = self.rect.top
+            self.speedy = 0
+            self.is_flying = False
 
     def collisions(self, y, objects):
         for object in objects:
@@ -121,7 +126,7 @@ class Obstacle(pygame.sprite.Sprite):
                 if y > 0:
                     self.rect.bottom = object.rect.top
                     self.speedy = 0
-                    self.is_fly = False
+                    self.is_flying = False
 
 
 def draw_meters(screen, x, y, text):
@@ -138,6 +143,7 @@ def main():
     # сдвиг фона
     delta_x_bg = -100
     delta_y_bg = 0
+    first_bg_isEnabled = True
 
     # Группы
     players = pygame.sprite.Group()
@@ -174,14 +180,14 @@ def main():
 
         for box in barrier:
             if box != floor and box != left_wall and box != right_wall:
-                if box.rect.y <= 200 and not box.is_fly:
+                if box.rect.y <= 200 and not box.is_flying:
                     top = box.rect.y
         if top:
             for box in barrier:
-                if box != floor and box != left_wall and box != right_wall:
-                    print(dt)
-                    box.rect.y += dt  # height - player.rect.y
+                if box != left_wall and box != right_wall:
+                    box.rect.y += dt
             meters += int(dt)
+            delta_y_bg += dt
             top = 0
 
         if box.speedy == 0:
@@ -190,15 +196,25 @@ def main():
             barrier.add(box)
 
         for obj in objects:
-            if obj.rect.y <= -200:
+            if obj.rect.y >= 1000:
                 objects.remove(obj)
 
         # Рендеринг
         screen.fill(BLACK)
-        screen.blit(bg, (delta_x_bg, delta_y_bg))
+        if first_bg_isEnabled:
+            screen.blit(bg, (delta_x_bg, delta_y_bg))
+        else:
+            screen.blit(bg2_duplicate, (0, delta_y_bg))
+        screen.blit(bg2, (0, -(height - delta_y_bg)))
         players.draw(screen)
         barrier.draw(screen)
         draw_meters(screen, 20, 10, 'meters: ' + str(meters))
+
+        # возврат фона
+        if delta_y_bg >= height:
+            delta_y_bg = 0
+            if first_bg_isEnabled:
+                first_bg_isEnabled = False
 
         pygame.display.flip()
     pygame.quit()
