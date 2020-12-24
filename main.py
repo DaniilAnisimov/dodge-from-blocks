@@ -7,6 +7,8 @@ import pygame
 size = width, height = 500, 600
 window_name = "Dodge from blocks"
 fps = 60
+# метры
+meters = 0
 
 # Цвета
 WHITE = (255, 255, 255)
@@ -28,29 +30,34 @@ bg2_duplicate = bg2.copy()
 
 
 class Player(pygame.sprite.Sprite):
-    player_image = pygame.image.load(f'{img_folder}/character.png').convert()
+    player_image = pygame.image.load(f"{img_folder}/walk/walk_left/1.png").convert()
 
     def __init__(self, x, y):
         pygame.sprite.Sprite.__init__(self)
         self.width, self.height = 30, 40
         self.image = Player.player_image
         self.image.set_colorkey(WHITE)
+        self.animation_left = [pygame.image.load(f"{img_folder}/walk/walk_left/{i}.png") for i in range(1, 10)]
+        self.animation_right = [pygame.image.load(f"{img_folder}/walk/walk_right/{i}.png") for i in range(1, 10)]
         self.rect = self.image.get_rect()
         self.rect.x, self.rect.y = x, y
-        self.move_speed = 10
+        self.move_speed = 8
         self.speedx = 0
         self.speedy = 0
         self.jump_power = 10
         self.gravity = 0.35
         self.onground = False
+        self.count_anim = 0
 
     def update(self, objects):
         self.speedx = 0
         keypressed = pygame.key.get_pressed()
         if keypressed[pygame.K_LEFT]:
             self.speedx -= self.move_speed
+            self.image = self.animation_left[self.count_anim // 6 - 1]
         if keypressed[pygame.K_RIGHT]:
             self.speedx += self.move_speed
+            self.image = self.animation_right[self.count_anim // 6 - 1]
         if keypressed[pygame.K_UP]:
             if self.onground:
                 self.speedy -= self.jump_power
@@ -63,6 +70,10 @@ class Player(pygame.sprite.Sprite):
 
         self.rect.x += self.speedx
         self.collisions(self.speedx, 0, objects)
+
+        self.count_anim += 1
+        if self.count_anim == 30:
+            self.count_anim = 0
 
     def collisions(self, x, y, objects):
         for object in objects:
@@ -78,6 +89,9 @@ class Player(pygame.sprite.Sprite):
                 if y < 0:
                     self.rect.top = object.rect.bottom
                     self.speedy = 0
+                if object.is_flying:
+                    # Потом будем заканчивать игру
+                    print('коробка упала сверху')
 
 
 class Obstacle(pygame.sprite.Sprite):
@@ -87,6 +101,7 @@ class Obstacle(pygame.sprite.Sprite):
     metalBoxBlue100x50 = pygame.image.load(f'{img_folder}/metalBoxBlue100x50.png').convert()
     metalBoxRed50x50 = pygame.image.load(f'{img_folder}/metalBoxRed50x50.png').convert()
     metalBoxRed100x50 = pygame.image.load(f'{img_folder}/metalBoxRed100x50.png').convert()
+    metalBoxGray100x100 = pygame.image.load(f'{img_folder}/metalBoxGray100x100.jpg').convert()
 
     def __init__(self, x, y, width, height, s, type='box'):
         pygame.sprite.Sprite.__init__(self)
@@ -98,7 +113,8 @@ class Obstacle(pygame.sprite.Sprite):
                                         Obstacle.metalBoxBlue50x50,
                                         Obstacle.metalBoxBlue100x50,
                                         Obstacle.metalBoxRed100x50,
-                                        Obstacle.metalBoxRed50x50])
+                                        Obstacle.metalBoxRed50x50,
+                                        Obstacle.metalBoxGray100x100])
             self.rect = self.image.get_rect()
             if self.rect.width == 100:
                 self.rect.x = random.randint(0, 8) * 50
@@ -136,8 +152,8 @@ def draw_meters(screen, x, y, text):
 
 
 def main():
-    # метры
-    meters = 0
+    global meters
+    # самый высокий блок
     top = 0
 
     # сдвиг фона
@@ -168,7 +184,7 @@ def main():
 
     running = True
     while running:
-        dt = clock.tick(fps) / 10
+        dt = clock.tick(fps) / 5
         # События
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -180,7 +196,7 @@ def main():
 
         for box in barrier:
             if box != floor and box != left_wall and box != right_wall:
-                if box.rect.y <= 200 and not box.is_flying:
+                if box.rect.y <= 300 and not box.is_flying:
                     top = box.rect.y
         if top:
             for box in barrier:
