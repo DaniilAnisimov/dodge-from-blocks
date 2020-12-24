@@ -30,21 +30,20 @@ bg2_duplicate = bg2.copy()
 
 
 class Player(pygame.sprite.Sprite):
-    player_image = pygame.image.load(f"{img_folder}/walk/walk_left/1.png").convert()
-
     def __init__(self, x, y):
         pygame.sprite.Sprite.__init__(self)
         self.width, self.height = 30, 40
-        self.image = Player.player_image
-        self.image.set_colorkey(WHITE)
+
         self.animation_left = [pygame.image.load(f"{img_folder}/walk/walk_left/{i}.png") for i in range(1, 10)]
         self.animation_right = [pygame.image.load(f"{img_folder}/walk/walk_right/{i}.png") for i in range(1, 10)]
+        self.image = self.animation_left[0]
         self.rect = self.image.get_rect()
         self.rect.x, self.rect.y = x, y
         self.move_speed = 8
         self.speedx = 0
         self.speedy = 0
         self.jump_power = 10
+        self.jump_power_low = 6
         self.gravity = 0.35
         self.onground = False
         self.count_anim = 0
@@ -54,13 +53,16 @@ class Player(pygame.sprite.Sprite):
         keypressed = pygame.key.get_pressed()
         if keypressed[pygame.K_LEFT]:
             self.speedx -= self.move_speed
-            self.image = self.animation_left[self.count_anim // 6 - 1]
+            self.image = self.animation_left[self.count_anim // 3 - 1]
         if keypressed[pygame.K_RIGHT]:
             self.speedx += self.move_speed
-            self.image = self.animation_right[self.count_anim // 6 - 1]
+            self.image = self.animation_right[self.count_anim // 3 - 1]
         if keypressed[pygame.K_UP]:
             if self.onground:
                 self.speedy -= self.jump_power
+        if keypressed[pygame.K_SPACE]:
+            if self.onground:
+                self.speedy -= self.jump_power_low
         if not self.onground:
             self.speedy += self.gravity
         self.onground = False
@@ -131,7 +133,7 @@ class Obstacle(pygame.sprite.Sprite):
     def update(self, objects):
         self.rect.y += self.speedy
         self.collisions(self.speedy, objects)
-        if self.rect.y == 600 and self.is_flying:
+        if self.rect.y >= height and self.is_flying:
             self.rect.bottom = self.rect.top
             self.speedy = 0
             self.is_flying = False
@@ -231,6 +233,9 @@ def main():
             delta_y_bg = 0
             if first_bg_isEnabled:
                 first_bg_isEnabled = False
+
+        if player.rect.y > height:
+            print('game over')
 
         pygame.display.flip()
     pygame.quit()
