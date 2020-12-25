@@ -1,6 +1,5 @@
 import os
 import random
-
 import pygame
 
 # Базовые переменные
@@ -9,6 +8,8 @@ window_name = "Dodge from blocks"
 fps = 60
 # метры
 meters = 0
+height_meters = 40    # В пикселях
+altitude_record = 0
 
 # Цвета
 WHITE = (255, 255, 255)
@@ -27,6 +28,13 @@ img_folder = os.path.join(game_folder, "img")
 bg = pygame.image.load(f'{img_folder}/bg.jpg').convert()
 bg2 = pygame.image.load(f'{img_folder}/bg2.jpg').convert()
 bg2_duplicate = bg2.copy()
+woodenBox50x50 = pygame.image.load(f'{img_folder}/woodenBox50x50.png').convert()
+woodenBox100x50 = pygame.image.load(f'{img_folder}/woodenBox100x50.png').convert()
+metalBoxBlue50x50 = pygame.image.load(f'{img_folder}/metalBoxBlue50x50.png').convert()
+metalBoxBlue100x50 = pygame.image.load(f'{img_folder}/metalBoxBlue100x50.png').convert()
+metalBoxRed50x50 = pygame.image.load(f'{img_folder}/metalBoxRed50x50.png').convert()
+metalBoxRed100x50 = pygame.image.load(f'{img_folder}/metalBoxRed100x50.png').convert()
+metalBoxGray100x100 = pygame.image.load(f'{img_folder}/metalBoxGray100x100.jpg').convert()
 
 
 class Player(pygame.sprite.Sprite):
@@ -42,11 +50,14 @@ class Player(pygame.sprite.Sprite):
         self.move_speed = 8
         self.speedx = 0
         self.speedy = 0
-        self.jump_power = 10
+        self.jump_power = 9
         self.jump_power_low = 6
         self.gravity = 0.35
         self.onground = False
         self.count_anim = 0
+        self.number_of_jumps = 0
+        self.max_number_of_jumps = 2
+        self.max_height = 0
 
     def update(self, objects):
         self.speedx = 0
@@ -58,8 +69,9 @@ class Player(pygame.sprite.Sprite):
             self.speedx += self.move_speed
             self.image = self.animation_right[self.count_anim // 3 - 1]
         if keypressed[pygame.K_UP]:
-            if self.onground:
+            if self.onground or self.number_of_jumps < self.max_number_of_jumps and self.speedy > 0:
                 self.speedy -= self.jump_power
+                self.number_of_jumps += 1
         if keypressed[pygame.K_SPACE]:
             if self.onground:
                 self.speedy -= self.jump_power_low
@@ -76,6 +88,12 @@ class Player(pygame.sprite.Sprite):
         self.count_anim += 1
         if self.count_anim == 30:
             self.count_anim = 0
+        if self.rect.right > width:
+            self.rect.right = width
+        if self.rect.left < 0:
+            self.rect.left = 0
+        self.max_height = max(height - self.rect.y, self.max_height)
+        print(self.max_height)
 
     def collisions(self, x, y, objects):
         for object in objects:
@@ -87,6 +105,7 @@ class Player(pygame.sprite.Sprite):
                 if y > 0:
                     self.rect.bottom = object.rect.top
                     self.onground = True
+                    self.number_of_jumps = 0
                     self.speedy = 0
                 if y < 0:
                     self.rect.top = object.rect.bottom
@@ -97,26 +116,18 @@ class Player(pygame.sprite.Sprite):
 
 
 class Obstacle(pygame.sprite.Sprite):
-    woodenBox50x50 = pygame.image.load(f'{img_folder}/woodenBox50x50.png').convert()
-    woodenBox100x50 = pygame.image.load(f'{img_folder}/woodenBox100x50.png').convert()
-    metalBoxBlue50x50 = pygame.image.load(f'{img_folder}/metalBoxBlue50x50.png').convert()
-    metalBoxBlue100x50 = pygame.image.load(f'{img_folder}/metalBoxBlue100x50.png').convert()
-    metalBoxRed50x50 = pygame.image.load(f'{img_folder}/metalBoxRed50x50.png').convert()
-    metalBoxRed100x50 = pygame.image.load(f'{img_folder}/metalBoxRed100x50.png').convert()
-    metalBoxGray100x100 = pygame.image.load(f'{img_folder}/metalBoxGray100x100.jpg').convert()
-
     def __init__(self, x, y, width, height, s, type='box'):
         pygame.sprite.Sprite.__init__(self)
         self.is_flying = False
         if type == "box":
             self.is_flying = True
-            self.image = random.choice([Obstacle.woodenBox50x50,
-                                        Obstacle.woodenBox100x50,
-                                        Obstacle.metalBoxBlue50x50,
-                                        Obstacle.metalBoxBlue100x50,
-                                        Obstacle.metalBoxRed100x50,
-                                        Obstacle.metalBoxRed50x50,
-                                        Obstacle.metalBoxGray100x100])
+            self.image = random.choice([woodenBox50x50,
+                                        woodenBox100x50,
+                                        metalBoxBlue50x50,
+                                        metalBoxBlue100x50,
+                                        metalBoxRed100x50,
+                                        metalBoxRed50x50,
+                                        metalBoxGray100x100])
             self.rect = self.image.get_rect()
             if self.rect.width == 100:
                 self.rect.x = random.randint(0, 8) * 50
@@ -154,7 +165,7 @@ def draw_meters(screen, x, y, text):
 
 
 def main():
-    global meters
+    global meters, altitude_record
     # самый высокий блок
     top = 0
 
@@ -170,12 +181,9 @@ def main():
 
     # Мобы
     player = Player(width / 2, height - 300)
-
     floor = Obstacle(0, height - 10, width, 10, 0, 'floor')
-    left_wall = Obstacle(0, 0, 0, height, 0, 'wall')
-    right_wall = Obstacle(width, 0, 0, height, 0, 'wall')
 
-    objects += [floor, left_wall, right_wall]
+    objects += [floor]
     for object in objects:
         barrier.add(object)
     players.add(player)
@@ -197,15 +205,14 @@ def main():
         barrier.update(objects)
 
         for box in barrier:
-            if box != floor and box != left_wall and box != right_wall:
-                if box.rect.y <= 300 and not box.is_flying:
-                    top = box.rect.y
+            if box != floor and box.rect.y <= 300 and not box.is_flying:
+                top = box.rect.y
         if top:
             for box in barrier:
-                if box != left_wall and box != right_wall:
-                    box.rect.y += dt
+                box.rect.y += dt
             meters += int(dt)
             delta_y_bg += dt
+            player.max_height = 0
             top = 0
 
         if box.speedy == 0:
@@ -226,7 +233,9 @@ def main():
         screen.blit(bg2, (0, -(height - delta_y_bg)))
         players.draw(screen)
         barrier.draw(screen)
-        draw_meters(screen, 20, 10, 'meters: ' + str(meters))
+
+        altitude_record = max(meters + player.max_height, altitude_record)
+        draw_meters(screen, 20, 10, 'meters: ' + str(altitude_record // height_meters))
 
         # возврат фона
         if delta_y_bg >= height:
