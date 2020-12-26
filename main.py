@@ -1,5 +1,5 @@
 import os
-import random
+from random import randint, choice
 import pygame
 
 # Базовые переменные
@@ -8,7 +8,7 @@ window_name = "Dodge from blocks"
 fps = 60
 # метры
 meters = 0
-height_meters = 40    # В пикселях
+height_meters = 40  # В пикселях
 altitude_record = 0
 
 # Цвета
@@ -17,6 +17,7 @@ BLACK = (0, 0, 0)
 RED = (255, 0, 0)
 GREEN = (0, 255, 0)
 BLUE = (0, 0, 255)
+LIGHT_CORAL = (255, 100, 100)
 
 pygame.init()
 screen = pygame.display.set_mode(size)
@@ -33,20 +34,11 @@ bg2_duplicate = bg2.copy()
 bg_menu = pygame.image.load(f'{img_folder}/bg_menu.jpg').convert()
 bg_menu = pygame.transform.scale(bg_menu, (width + 400, height))
 
-woodenBox50x50 = pygame.image.load(f'{img_folder}/woodenBox50x50.png').convert()
-woodenBox100x50 = pygame.image.load(f'{img_folder}/woodenBox100x50.png').convert()
-metalBoxBlue50x50 = pygame.image.load(f'{img_folder}/metalBoxBlue50x50.png').convert()
-metalBoxBlue100x50 = pygame.image.load(f'{img_folder}/metalBoxBlue100x50.png').convert()
-metalBoxRed50x50 = pygame.image.load(f'{img_folder}/metalBoxRed50x50.png').convert()
-metalBoxRed100x50 = pygame.image.load(f'{img_folder}/metalBoxRed100x50.png').convert()
-metalBoxGray100x100 = pygame.image.load(f'{img_folder}/metalBoxGray100x100.jpg').convert()
-
 
 class Player(pygame.sprite.Sprite):
     def __init__(self, x, y):
         pygame.sprite.Sprite.__init__(self)
         self.width, self.height = 30, 40
-
         self.animation_left = [pygame.image.load(f"{img_folder}/walk/walk_left/{i}.png") for i in range(1, 10)]
         self.animation_right = [pygame.image.load(f"{img_folder}/walk/walk_right/{i}.png") for i in range(1, 10)]
         self.image = self.animation_left[0]
@@ -56,7 +48,6 @@ class Player(pygame.sprite.Sprite):
         self.speedx = 0
         self.speedy = 0
         self.jump_power = 9
-        self.jump_power_low = 6
         self.gravity = 0.35
         self.onground = False
         self.count_anim = 0
@@ -77,9 +68,6 @@ class Player(pygame.sprite.Sprite):
             if self.onground or self.number_of_jumps < self.max_number_of_jumps and self.speedy > 0:
                 self.speedy -= self.jump_power
                 self.number_of_jumps += 1
-        if keypressed[pygame.K_SPACE]:
-            if self.onground:
-                self.speedy -= self.jump_power_low
         if not self.onground:
             self.speedy += self.gravity
         self.onground = False
@@ -114,29 +102,37 @@ class Player(pygame.sprite.Sprite):
                 if y < 0:
                     self.rect.top = object.rect.bottom
                     self.speedy = 0
-                if object.is_flying:
+                if object.is_flying and y > 0:
                     # Потом будем заканчивать игру
                     print('коробка упала сверху')
 
 
 class Obstacle(pygame.sprite.Sprite):
+    woodenBox50x50 = pygame.image.load(f'{img_folder}/woodenBox50x50.png').convert()
+    woodenBox100x50 = pygame.image.load(f'{img_folder}/woodenBox100x50.png').convert()
+    metalBoxBlue50x50 = pygame.image.load(f'{img_folder}/metalBoxBlue50x50.png').convert()
+    metalBoxBlue100x50 = pygame.image.load(f'{img_folder}/metalBoxBlue100x50.png').convert()
+    metalBoxRed50x50 = pygame.image.load(f'{img_folder}/metalBoxRed50x50.png').convert()
+    metalBoxRed100x50 = pygame.image.load(f'{img_folder}/metalBoxRed100x50.png').convert()
+    metalBoxGray100x100 = pygame.image.load(f'{img_folder}/metalBoxGray100x100.jpg').convert()
+
     def __init__(self, x, y, width, height, s, type='box'):
         pygame.sprite.Sprite.__init__(self)
         self.is_flying = False
         if type == "box":
             self.is_flying = True
-            self.image = random.choice([woodenBox50x50,
-                                        woodenBox100x50,
-                                        metalBoxBlue50x50,
-                                        metalBoxBlue100x50,
-                                        metalBoxRed100x50,
-                                        metalBoxRed50x50,
-                                        metalBoxGray100x100])
+            self.image = choice([Obstacle.woodenBox50x50,
+                                 Obstacle.woodenBox100x50,
+                                 Obstacle.metalBoxBlue50x50,
+                                 Obstacle.metalBoxBlue100x50,
+                                 Obstacle.metalBoxRed100x50,
+                                 Obstacle.metalBoxRed50x50,
+                                 Obstacle.metalBoxGray100x100])
             self.rect = self.image.get_rect()
             if self.rect.width == 100:
-                self.rect.x = random.randint(0, 8) * 50
+                self.rect.x = randint(0, 8) * 50
             else:
-                self.rect.x = random.randint(0, 9) * 50
+                self.rect.x = randint(0, 9) * 50
         else:
             self.image = pygame.Surface((width, height))
             self.image.fill(BLACK)
@@ -172,15 +168,15 @@ class Button:
         mouse = pygame.mouse.get_pos()
         click = pygame.mouse.get_pressed()
         if x < mouse[0] < x + self.width and y < mouse[1] < y + self.height:
-            draw_meters(screen, x, y, massage, color=self.active_color, size=self.height)
+            draw_text(screen, x, y, massage, color=self.active_color, size=self.height)
             if click[0] == 1 and action:
                 action()
         else:
-            draw_meters(screen, x, y, massage, color=self.inactive_color, size=self.height)
+            draw_text(screen, x, y, massage, color=self.inactive_color, size=self.height)
 
 
 # Доступные шрифты: NaturalMonoRegular, PerfectDOSVGA437, RobotronDotMatrix, Thintel
-def draw_meters(screen, x, y, text, color=BLACK, f_type="NaturalMonoRegular.ttf", size=30):
+def draw_text(screen, x, y, text, color=BLACK, f_type="NaturalMonoRegular.ttf", size=30):
     font = pygame.font.Font(font_folder + "/" + f_type, size)
     text = font.render(text, True, color)
     screen.blit(text, (x, y))
@@ -200,8 +196,8 @@ def game_menu():
         screen.blit(bg_menu, (0, 0))
         game_button.draw(20, 100, "Играть", game_cycle)
         exit_button.draw(20, 200, "Выйти", exit)
-        draw_meters(screen, 40, 20, "Dodge from", f_type="PerfectDOSVGA437.ttf", size=40)
-        draw_meters(screen, 290, 20, "Blocks", f_type="RobotronDotMatrix.otf", size=40)
+        draw_text(screen, 40, 20, "Dodge from", f_type="PerfectDOSVGA437.ttf", size=40)
+        draw_text(screen, 290, 20, "Blocks", f_type="RobotronDotMatrix.otf", size=40)
 
         pygame.display.update()
         clock.tick(fps)
@@ -231,7 +227,7 @@ def game_cycle():
         barrier.add(object)
     players.add(player)
 
-    box = Obstacle(random.randint(10, width - 60), -100, 50, 50, 5)
+    box = Obstacle(randint(10, width - 60), -100, 50, 50, 5)
     objects.append(box)
     barrier.add(box)
 
@@ -259,7 +255,7 @@ def game_cycle():
             top = 0
 
         if box.speedy == 0:
-            box = Obstacle(random.randint(10, width - 60), -100, 50, 50, 5)
+            box = Obstacle(randint(10, width - 60), -100, 50, 50, 5)
             objects.append(box)
             barrier.add(box)
 
@@ -278,7 +274,7 @@ def game_cycle():
         barrier.draw(screen)
 
         altitude_record = max(meters + player.max_height, altitude_record)
-        draw_meters(screen, 20, 10, 'meters: ' + str(altitude_record // height_meters), color=(255, 100, 100))
+        draw_text(screen, 20, 10, 'meters: ' + str(altitude_record // height_meters), LIGHT_CORAL)
 
         # возврат фона
         if delta_y_bg >= height:
@@ -290,8 +286,8 @@ def game_cycle():
             print('game over')
 
         pygame.display.flip()
-    pygame.quit()
 
 
 if __name__ == '__main__':
     game_menu()
+    pygame.quit()
