@@ -25,9 +25,14 @@ clock = pygame.time.Clock()
 
 game_folder = os.path.dirname(__file__)
 img_folder = os.path.join(game_folder, "img")
+font_folder = os.path.join(game_folder, "fonts")
+
 bg = pygame.image.load(f'{img_folder}/bg.jpg').convert()
 bg2 = pygame.image.load(f'{img_folder}/bg2.jpg').convert()
 bg2_duplicate = bg2.copy()
+bg_menu = pygame.image.load(f'{img_folder}/bg_menu.jpg').convert()
+bg_menu = pygame.transform.scale(bg_menu, (width + 400, height))
+
 woodenBox50x50 = pygame.image.load(f'{img_folder}/woodenBox50x50.png').convert()
 woodenBox100x50 = pygame.image.load(f'{img_folder}/woodenBox100x50.png').convert()
 metalBoxBlue50x50 = pygame.image.load(f'{img_folder}/metalBoxBlue50x50.png').convert()
@@ -93,7 +98,6 @@ class Player(pygame.sprite.Sprite):
         if self.rect.left < 0:
             self.rect.left = 0
         self.max_height = max(height - self.rect.y, self.max_height)
-        print(self.max_height)
 
     def collisions(self, x, y, objects):
         for object in objects:
@@ -158,13 +162,52 @@ class Obstacle(pygame.sprite.Sprite):
                     self.is_flying = False
 
 
-def draw_meters(screen, x, y, text):
-    font = pygame.font.Font(None, 30)
-    text = font.render(text, True, (255, 100, 100))
+class Button:
+    def __init__(self, width, height, inactive_color, active_color):
+        self.width, self.height = width, height
+        self.inactive_color = inactive_color
+        self.active_color = active_color
+
+    def draw(self, x, y, massage, action=None):
+        mouse = pygame.mouse.get_pos()
+        click = pygame.mouse.get_pressed()
+        if x < mouse[0] < x + self.width and y < mouse[1] < y + self.height:
+            draw_meters(screen, x, y, massage, color=self.active_color, size=self.height)
+            if click[0] == 1 and action:
+                action()
+        else:
+            draw_meters(screen, x, y, massage, color=self.inactive_color, size=self.height)
+
+
+# Доступные шрифты: NaturalMonoRegular, PerfectDOSVGA437, RobotronDotMatrix, Thintel
+def draw_meters(screen, x, y, text, color=BLACK, f_type="NaturalMonoRegular.ttf", size=30):
+    font = pygame.font.Font(font_folder + "/" + f_type, size)
+    text = font.render(text, True, color)
     screen.blit(text, (x, y))
 
 
-def main():
+def game_menu():
+    game_button = Button(200, 50, BLACK, BLUE)
+    exit_button = Button(200, 50, BLACK, BLUE)
+
+    running = True
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+
+        # Рендеринг
+        screen.blit(bg_menu, (0, 0))
+        game_button.draw(20, 100, "Играть", game_cycle)
+        exit_button.draw(20, 200, "Выйти", exit)
+        draw_meters(screen, 40, 20, "Dodge from", f_type="PerfectDOSVGA437.ttf", size=40)
+        draw_meters(screen, 290, 20, "Blocks", f_type="RobotronDotMatrix.otf", size=40)
+
+        pygame.display.update()
+        clock.tick(fps)
+
+
+def game_cycle():
     global meters, altitude_record
     # самый высокий блок
     top = 0
@@ -235,7 +278,7 @@ def main():
         barrier.draw(screen)
 
         altitude_record = max(meters + player.max_height, altitude_record)
-        draw_meters(screen, 20, 10, 'meters: ' + str(altitude_record // height_meters))
+        draw_meters(screen, 20, 10, 'meters: ' + str(altitude_record // height_meters), color=(255, 100, 100))
 
         # возврат фона
         if delta_y_bg >= height:
@@ -251,4 +294,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    game_menu()
