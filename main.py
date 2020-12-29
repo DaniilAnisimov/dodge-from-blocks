@@ -7,9 +7,7 @@ size = width, height = 500, 600
 window_name = "Dodge from blocks"
 fps = 60
 # метры
-meters = 0
 height_meters = 40  # В пикселях
-altitude_record = 0
 
 # Цвета
 WHITE = (255, 255, 255)
@@ -138,7 +136,6 @@ class Obstacle(pygame.sprite.Sprite):
             self.image.fill(BLACK)
             self.rect = self.image.get_rect()
             self.rect.x, self.rect.y = x, y
-
         self.speedy = s
 
     def update(self, objects):
@@ -190,7 +187,8 @@ def game_menu():
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                running = False
+                pygame.quit()
+                exit()
 
         # Рендеринг
         screen.blit(bg_menu, (0, 0))
@@ -203,10 +201,29 @@ def game_menu():
         clock.tick(fps)
 
 
+def pause():
+    paused = True
+    while paused:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_p:
+                    paused = False
+
+        draw_text(screen, 25, 100, "Пауза. Нажмите p чтобы продолжить.", color=RED, size=22)
+
+        pygame.display.update()
+        clock.tick(fps)
+
+
 def game_cycle():
-    global meters, altitude_record
     # самый высокий блок
     top = 0
+
+    altitude_record = 0
+    meters = 0
 
     # сдвиг фона
     delta_x_bg = -100
@@ -238,6 +255,10 @@ def game_cycle():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+                exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_p:
+                    pause()
 
         # Обновление
         players.update(objects)
