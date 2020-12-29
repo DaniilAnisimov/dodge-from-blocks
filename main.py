@@ -7,7 +7,9 @@ size = width, height = 500, 600
 window_name = "Dodge from blocks"
 fps = 60
 # метры
+meters = 0
 height_meters = 40  # В пикселях
+altitude_record = 0
 
 # Цвета
 WHITE = (255, 255, 255)
@@ -161,15 +163,15 @@ class Button:
         self.inactive_color = inactive_color
         self.active_color = active_color
 
-    def draw(self, x, y, massage, action=None):
+    def draw(self, x, y, massage, action=None, f_type="NaturalMonoRegular.ttf"):
         mouse = pygame.mouse.get_pos()
         click = pygame.mouse.get_pressed()
         if x < mouse[0] < x + self.width and y < mouse[1] < y + self.height:
-            draw_text(screen, x, y, massage, color=self.active_color, size=self.height)
+            draw_text(screen, x, y, massage, color=self.active_color, size=self.height, f_type=f_type)
             if click[0] == 1 and action:
                 action()
         else:
-            draw_text(screen, x, y, massage, color=self.inactive_color, size=self.height)
+            draw_text(screen, x, y, massage, color=self.inactive_color, size=self.height, f_type=f_type)
 
 
 # Доступные шрифты: NaturalMonoRegular, PerfectDOSVGA437, RobotronDotMatrix, Thintel
@@ -218,7 +220,37 @@ def pause():
         clock.tick(fps)
 
 
+def game_over():
+    running = True
+    drawing = True
+    screen_saver_speed = 10
+    x = 0
+
+    continue_button = Button(100, 25, (200, 200, 200), WHITE)
+    exit_button = Button(100, 25, (200, 200, 200), WHITE)
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                exit()
+
+        screen.fill(BLACK, (0, 0, x, height))
+        if x >= width:
+            drawing = False
+        if drawing:
+            x += screen_saver_speed
+        else:
+            draw_text(screen, 85, 200, "Игра окончена", color=WHITE, size=50, f_type="PerfectDOSVGA437.ttf")
+            draw_text(screen, 150, 260, "Рекорд высоты: "
+                      + str(altitude_record // height_meters), color=WHITE, size=25, f_type="PerfectDOSVGA437.ttf")
+            continue_button.draw(180, 300, "Новая игра", action=game_cycle)
+            exit_button.draw(210, 335, "Выйти", action=game_menu)
+        pygame.display.update()
+        clock.tick(fps)
+
+
 def game_cycle():
+    global meters, altitude_record
     # самый высокий блок
     top = 0
 
@@ -304,7 +336,8 @@ def game_cycle():
                 first_bg_isEnabled = False
 
         if player.rect.y > height:
-            print('game over')
+            running = False
+            game_over()
 
         pygame.display.flip()
 
