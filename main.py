@@ -35,6 +35,23 @@ bg_menu = pygame.image.load(f'{img_folder}/bg_menu.jpg').convert()
 bg_menu = pygame.transform.scale(bg_menu, (width + 400, height))
 
 
+def on_music(type_of_music):
+    if type_of_music == "menu":
+        pygame.mixer.music.load(choice(['audio/CypherTwin.wav',
+                                        'audio/MorphadronRezidue.wav']))
+    elif type_of_music == "game":
+        pygame.mixer.music.load(choice(['audio/CypherTwin.wav',
+                                        'audio/MorphadronRezidue.wav']))
+    elif type_of_music == "game_over":
+        pygame.mixer.music.load(choice(['audio/a1.wav']))
+    pygame.mixer.music.set_volume(0.3)
+    pygame.mixer.music.play(loops=-1)
+
+
+def off_music():
+    pygame.mixer.pause()
+
+
 class Player(pygame.sprite.Sprite):
     def __init__(self, x, y):
         pygame.sprite.Sprite.__init__(self)
@@ -90,6 +107,8 @@ class Player(pygame.sprite.Sprite):
     def collisions(self, x, y, objects):
         for object in objects:
             if pygame.sprite.collide_rect(self, object):
+                if object.is_flying and int(y) == 1:
+                    game_over()
                 if x > 0:
                     self.rect.right = object.rect.left
                 if x < 0:
@@ -102,9 +121,6 @@ class Player(pygame.sprite.Sprite):
                 if y < 0:
                     self.rect.top = object.rect.bottom
                     self.speedy = 0
-                if object.is_flying and y > 0:
-                    # Потом будем заканчивать игру
-                    print('коробка упала сверху')
 
 
 class Obstacle(pygame.sprite.Sprite):
@@ -163,15 +179,15 @@ class Button:
         self.inactive_color = inactive_color
         self.active_color = active_color
 
-    def draw(self, x, y, massage, action=None, f_type="NaturalMonoRegular.ttf"):
+    def draw(self, x, y, message, action=None, f_type="NaturalMonoRegular.ttf"):
         mouse = pygame.mouse.get_pos()
         click = pygame.mouse.get_pressed()
         if x < mouse[0] < x + self.width and y < mouse[1] < y + self.height:
-            draw_text(screen, x, y, massage, color=self.active_color, size=self.height, f_type=f_type)
+            draw_text(screen, x, y, message, color=self.active_color, size=self.height, f_type=f_type)
             if click[0] == 1 and action:
                 action()
         else:
-            draw_text(screen, x, y, massage, color=self.inactive_color, size=self.height, f_type=f_type)
+            draw_text(screen, x, y, message, color=self.inactive_color, size=self.height, f_type=f_type)
 
 
 # Доступные шрифты: NaturalMonoRegular, PerfectDOSVGA437, RobotronDotMatrix, Thintel
@@ -185,6 +201,7 @@ def game_menu():
     game_button = Button(200, 50, BLACK, BLUE)
     exit_button = Button(200, 50, BLACK, BLUE)
 
+    on_music("menu")
     running = True
     while running:
         for event in pygame.event.get():
@@ -200,11 +217,13 @@ def game_menu():
         draw_text(screen, 290, 20, "Blocks", f_type="RobotronDotMatrix.otf", size=40)
 
         pygame.display.update()
-        clock.tick(fps)
+        clock.tick(fps - fps // 2)
+    off_music()
 
 
 def pause():
     paused = True
+    draw_text(screen, 25, 100, "Пауза. Нажмите p чтобы продолжить.", color=RED, size=22)
     while paused:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -213,8 +232,6 @@ def pause():
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_p:
                     paused = False
-
-        draw_text(screen, 25, 100, "Пауза. Нажмите p чтобы продолжить.", color=RED, size=22)
 
         pygame.display.update()
         clock.tick(fps)
@@ -225,6 +242,8 @@ def game_over():
     drawing = True
     screen_saver_speed = 10
     x = 0
+
+    on_music("game_over")
 
     continue_button = Button(100, 25, (200, 200, 200), WHITE)
     exit_button = Button(100, 25, (200, 200, 200), WHITE)
@@ -247,6 +266,8 @@ def game_over():
             exit_button.draw(210, 335, "Выйти", action=game_menu)
         pygame.display.update()
         clock.tick(fps)
+
+    pygame.mixer.pause()
 
 
 def game_cycle():
@@ -279,6 +300,8 @@ def game_cycle():
     box = Obstacle(randint(10, width - 60), -100, 50, 50, 5)
     objects.append(box)
     barrier.add(box)
+
+    on_music("game")
 
     running = True
     while running:
@@ -338,8 +361,9 @@ def game_cycle():
         if player.rect.y > height:
             running = False
             game_over()
-
         pygame.display.flip()
+
+    off_music()
 
 
 if __name__ == '__main__':
