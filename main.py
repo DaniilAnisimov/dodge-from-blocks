@@ -53,7 +53,7 @@ def off_music():
 
 
 class Player(pygame.sprite.Sprite):
-    def __init__(self, x, y):
+    def __init__(self, x, y, cycle=1):
         pygame.sprite.Sprite.__init__(self)
         self.width, self.height = 30, 40
         self.animation_left = [pygame.image.load(f"{img_folder}/walk/walk_left/{i}.png") for i in range(1, 10)]
@@ -71,6 +71,7 @@ class Player(pygame.sprite.Sprite):
         self.number_of_jumps = 0
         self.max_number_of_jumps = 2
         self.max_height = 0
+        self.cycle = cycle
 
     def update(self, objects):
         self.speedx = 0
@@ -107,12 +108,15 @@ class Player(pygame.sprite.Sprite):
     def collisions(self, x, y, objects):
         for object in objects:
             if pygame.sprite.collide_rect(self, object):
-                if object.is_flying and int(y) == 1:
-                    game_over()
+                if object.is_flying and self.onground:
+                    game_over(cycle=self.cycle)
                 if x > 0:
                     self.rect.right = object.rect.left
                 if x < 0:
                     self.rect.left = object.rect.right
+                if y > 0 and object.rect.y < self.rect.y:
+                    self.rect.top = object.rect.bottom
+                    self.speedy = 8
                 if y > 0:
                     self.rect.bottom = object.rect.top
                     self.onground = True
@@ -120,7 +124,45 @@ class Player(pygame.sprite.Sprite):
                     self.speedy = 0
                 if y < 0:
                     self.rect.top = object.rect.bottom
-                    self.speedy = 0
+                    self.speedy = 8
+
+
+class Player2(Player, pygame.sprite.Sprite):
+    def __init__(self, x, y, cycle=1):
+        pygame.sprite.Sprite.__init__(self)
+        Player.__init__(self, x, y, cycle)
+
+    def update(self, objects):
+        self.speedx = 0
+        keypressed = pygame.key.get_pressed()
+        if keypressed[pygame.K_a]:
+            self.speedx -= self.move_speed
+            self.image = self.animation_left[self.count_anim // 3 - 1]
+        if keypressed[pygame.K_d]:
+            self.speedx += self.move_speed
+            self.image = self.animation_right[self.count_anim // 3 - 1]
+        if keypressed[pygame.K_w]:
+            if self.onground or self.number_of_jumps < self.max_number_of_jumps and self.speedy > 0:
+                self.speedy -= self.jump_power
+                self.number_of_jumps += 1
+        if not self.onground:
+            self.speedy += self.gravity
+        self.onground = False
+
+        self.rect.y += self.speedy
+        self.collisions(0, self.speedy, objects)
+
+        self.rect.x += self.speedx
+        self.collisions(self.speedx, 0, objects)
+
+        self.count_anim += 1
+        if self.count_anim == 30:
+            self.count_anim = 0
+        if self.rect.right > width:
+            self.rect.right = width
+        if self.rect.left < 0:
+            self.rect.left = 0
+        self.max_height = max(height - self.rect.y, self.max_height)
 
 
 class Obstacle(pygame.sprite.Sprite):
@@ -199,6 +241,7 @@ def draw_text(screen, x, y, text, color=BLACK, f_type="NaturalMonoRegular.ttf", 
 
 def game_menu():
     game_button = Button(200, 50, BLACK, BLUE)
+    game_for_2_button = Button(500, 50, BLACK, BLUE)
     exit_button = Button(200, 50, BLACK, BLUE)
 
     on_music("menu")
@@ -212,7 +255,8 @@ def game_menu():
         # Рендеринг
         screen.blit(bg_menu, (0, 0))
         game_button.draw(20, 100, "Играть", game_cycle)
-        exit_button.draw(20, 200, "Выйти", exit)
+        game_for_2_button.draw(20, 200, "Играть вдвоём", game_cycle_2)
+        exit_button.draw(20, 300, "Выйти", exit)
         draw_text(screen, 40, 20, "Dodge from", f_type="PerfectDOSVGA437.ttf", size=40)
         draw_text(screen, 290, 20, "Blocks", f_type="RobotronDotMatrix.otf", size=40)
 
@@ -237,7 +281,7 @@ def pause():
         clock.tick(fps)
 
 
-def game_over():
+def game_over(cycle=1):
     running = True
     drawing = True
     screen_saver_speed = 10
@@ -245,7 +289,7 @@ def game_over():
 
     on_music("game_over")
 
-    continue_button = Button(100, 25, (200, 200, 200), WHITE)
+    continue_button = Button(200, 25, (200, 200, 200), WHITE)
     exit_button = Button(100, 25, (200, 200, 200), WHITE)
     while running:
         for event in pygame.event.get():
@@ -262,12 +306,115 @@ def game_over():
             draw_text(screen, 85, 200, "Игра окончена", color=WHITE, size=50, f_type="PerfectDOSVGA437.ttf")
             draw_text(screen, 150, 260, "Рекорд высоты: "
                       + str(altitude_record // height_meters), color=WHITE, size=25, f_type="PerfectDOSVGA437.ttf")
-            continue_button.draw(180, 300, "Новая игра", action=game_cycle)
+            if cycle == 1:
+                continue_button.draw(180, 300, "Новая игра", action=game_cycle)
+            else:
+                continue_button.draw(180, 300, "Новая игра", action=game_cycle_2)
             exit_button.draw(210, 335, "Выйти", action=game_menu)
         pygame.display.update()
         clock.tick(fps)
 
     pygame.mixer.pause()
+
+
+def game_cycle_2():
+    global meters, altitude_record
+    # самый высокий блок
+    top = 0
+
+    altitude_record = 0
+    meters = 0
+
+    # сдвиг фона
+    delta_x_bg = -100
+    delta_y_bg = 0
+    first_bg_isEnabled = True
+
+    # Группы
+    players = pygame.sprite.Group()
+    barrier = pygame.sprite.Group()
+    objects = []
+
+    # Мобы
+    player = Player(width / 2 + 20, height - 300, cycle=2)
+    player2 = Player2(width / 2 - 20, height - 300, cycle=2)
+    floor = Obstacle(0, height - 10, width, 10, 0, 'floor')
+
+    objects += [floor]
+    for object in objects:
+        barrier.add(object)
+    players.add(player)
+    players.add(player2)
+
+    box = Obstacle(randint(10, width - 60), -100, 50, 50, 5)
+    objects.append(box)
+    barrier.add(box)
+
+    on_music("game")
+
+    running = True
+    while running:
+        dt = clock.tick(fps) / 5
+        # События
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+                exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_p:
+                    pause()
+
+        # Обновление
+        players.update(objects)
+        barrier.update(objects)
+
+        for box in barrier:
+            if box != floor and box.rect.y <= 300 and not box.is_flying:
+                top = box.rect.y
+        if top:
+            for box in barrier:
+                box.rect.y += dt
+            meters += int(dt)
+            delta_y_bg += dt
+            player.max_height = 0
+            player2.max_height = 0
+            top = 0
+
+        if box.speedy == 0:
+            box = Obstacle(randint(10, width - 60), -100, 50, 50, 5)
+            objects.append(box)
+            barrier.add(box)
+
+        for obj in objects:
+            if obj.rect.y >= 1000:
+                objects.remove(obj)
+
+        # Рендеринг
+        screen.fill(BLACK)
+        if first_bg_isEnabled:
+            screen.blit(bg, (delta_x_bg, delta_y_bg))
+        else:
+            screen.blit(bg2_duplicate, (0, delta_y_bg))
+        screen.blit(bg2, (0, -(height - delta_y_bg)))
+        players.draw(screen)
+        barrier.draw(screen)
+
+        altitude_record = max(meters + player.max_height, altitude_record)
+        draw_text(screen, 20, 10, 'meters: ' + str(altitude_record // height_meters), LIGHT_CORAL)
+
+        # возврат фона
+        if delta_y_bg >= height:
+            delta_y_bg = 0
+            if first_bg_isEnabled:
+                first_bg_isEnabled = False
+
+        if player.rect.y > height:
+            return game_over(cycle=2)
+        if player2.rect.y > height:
+            return game_over(cycle=2)
+        pygame.display.flip()
+
+    off_music()
 
 
 def game_cycle():
