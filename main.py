@@ -19,15 +19,17 @@ GREEN = (0, 255, 0)
 BLUE = (0, 0, 255)
 LIGHT_CORAL = (255, 100, 100)
 
+# инициализация игры
 pygame.init()
 screen = pygame.display.set_mode(size)
 pygame.display.set_caption(window_name)
 clock = pygame.time.Clock()
 
 game_folder = os.path.dirname(__file__)
-img_folder = os.path.join(game_folder, "img")
-font_folder = os.path.join(game_folder, "fonts")
+img_folder = os.path.join(game_folder, "data/img")
+font_folder = os.path.join(game_folder, "data/fonts")
 
+# bg - background
 bg = pygame.image.load(f'{img_folder}/bg.jpg').convert()
 bg2 = pygame.image.load(f'{img_folder}/bg2.jpg').convert()
 bg2_duplicate = bg2.copy()
@@ -37,13 +39,13 @@ bg_menu = pygame.transform.scale(bg_menu, (width + 400, height))
 
 def on_music(type_of_music):
     if type_of_music == "menu":
-        pygame.mixer.music.load(choice(['audio/CypherTwin.wav',
-                                        'audio/MorphadronRezidue.wav']))
+        pygame.mixer.music.load(choice(['data/audio/CypherTwin.wav',
+                                        'data/audio/MorphadronRezidue.wav']))
     elif type_of_music == "game":
-        pygame.mixer.music.load(choice(['audio/CypherTwin.wav',
-                                        'audio/MorphadronRezidue.wav']))
+        pygame.mixer.music.load(choice(['data/audio/CypherTwin.wav',
+                                        'data/audio/MorphadronRezidue.wav']))
     elif type_of_music == "game_over":
-        pygame.mixer.music.load(choice(['audio/a1.wav']))
+        pygame.mixer.music.load(choice(['data/audio/a1.wav']))
     pygame.mixer.music.set_volume(0.3)
     pygame.mixer.music.play(loops=-1)
 
@@ -53,43 +55,70 @@ def off_music():
 
 
 class Player(pygame.sprite.Sprite):
-    def __init__(self, x, y, cycle=1):
+    def __init__(self, x, y, cycle=1):  # cycle - режим игры, 1 - одиночный, 2 - для двоих
         pygame.sprite.Sprite.__init__(self)
         self.width, self.height = 30, 40
-        self.animation_left = [pygame.image.load(f"{img_folder}/walk/walk_left/{i}.png") for i in range(1, 10)]
-        self.animation_right = [pygame.image.load(f"{img_folder}/walk/walk_right/{i}.png") for i in range(1, 10)]
+        self.cycle = cycle
+        # загружаем спрайты для движения игрока
+        self.animation_left = [pygame.image.load(f"{img_folder}/walk/player1/walk_left/{i}.png") for i in range(1, 11)]
+        self.animation_right = [pygame.image.load(f"{img_folder}/walk/player1/walk_right/{i}.png")
+                                for i in range(1, 11)]
+        self.animation_stand = [pygame.image.load(f"{img_folder}/walk/player1/stand/{i}.png") for i in range(1, 3)]
+        self.animation_jump = [pygame.image.load(f"{img_folder}/walk/player1/jump/{i}.png") for i in range(1, 3)]
         self.image = self.animation_left[0]
+        # направление спрайт, l - left, r - right
+        self.direction = "l"
+
         self.rect = self.image.get_rect()
         self.rect.x, self.rect.y = x, y
-        self.move_speed = 8
-        self.speedx = 0
-        self.speedy = 0
+        # максимальная скорость игрока по оси x
+        self.move_speed = 7
+        self.speedx = 0  # скорость игрока по оси x
+        self.speedy = 0  # скорость игрока по оси y
+        # максимальная скорость прыжка
         self.jump_power = 9
+        # сила, с которой персонажа притягивает к земле
         self.gravity = 0.35
-        self.onground = False
+        self.onground = False   # True - Персонаж стоит на земле
         self.count_anim = 0
+        # Число прыжков персонажа
         self.number_of_jumps = 0
         self.max_number_of_jumps = 2
-        self.max_height = 0
-        self.cycle = cycle
+
+        self.max_height = 0  # максимально набранная высота
+        self.management = [pygame.K_LEFT, pygame.K_RIGHT, pygame.K_UP]
 
     def update(self, objects):
         self.speedx = 0
+        if self.direction == "l":
+            self.image = self.animation_stand[0]
+        else:
+            self.image = self.animation_stand[1]
         keypressed = pygame.key.get_pressed()
-        if keypressed[pygame.K_LEFT]:
+        # self.move_speed добавляется к скорости а не к координатам x, или y!
+        if keypressed[self.management[0]]:
             self.speedx -= self.move_speed
             self.image = self.animation_left[self.count_anim // 3 - 1]
-        if keypressed[pygame.K_RIGHT]:
+            self.direction = "l"
+        if keypressed[self.management[1]]:
             self.speedx += self.move_speed
             self.image = self.animation_right[self.count_anim // 3 - 1]
-        if keypressed[pygame.K_UP]:
+            self.direction = "r"
+        if keypressed[self.management[2]]:
             if self.onground or self.number_of_jumps < self.max_number_of_jumps and self.speedy > 0:
                 self.speedy -= self.jump_power
                 self.number_of_jumps += 1
+
         if not self.onground:
             self.speedy += self.gravity
+
+        if self.speedy < 0 and self.direction == "l":
+            self.image = self.animation_jump[0]
+        if self.speedy < 0 and self.direction == "r":
+            self.image = self.animation_jump[1]
         self.onground = False
 
+        # Меняем координаты персонажа в зависимости от скорости
         self.rect.y += self.speedy
         self.collisions(0, self.speedy, objects)
 
@@ -99,24 +128,30 @@ class Player(pygame.sprite.Sprite):
         self.count_anim += 1
         if self.count_anim == 30:
             self.count_anim = 0
+        # Не даём персонажу выйти за границы экрана
         if self.rect.right > width:
             self.rect.right = width
         if self.rect.left < 0:
             self.rect.left = 0
+        # Вычисляем максимальную высоту на которую персонаж смог забраться
         self.max_height = max(height - self.rect.y, self.max_height)
 
+    # функция отвечающая за столкновения с объектами, получает скорости по оси x, y и объекты
     def collisions(self, x, y, objects):
         for object in objects:
-            if pygame.sprite.collide_rect(self, object):
-                if object.is_flying and self.onground:
-                    game_over(cycle=self.cycle)
+            if pygame.sprite.collide_rect(self, object):  # При столкновении
+                # если персонаж находится на земле и на него падает коробка, заканчиваем игру
+                if object.is_flying and y > 0:
+                    return game_over(cycle=self.cycle)
+                # В зависимости от скорости персонажа и положения объекта, останавливаем персонажа
                 if x > 0:
                     self.rect.right = object.rect.left
                 if x < 0:
                     self.rect.left = object.rect.right
                 if y > 0 and object.rect.y < self.rect.y:
                     self.rect.top = object.rect.bottom
-                    self.speedy = 8
+                    self.rect.x += 10
+                    self.speedy = 10
                 if y > 0:
                     self.rect.bottom = object.rect.top
                     self.onground = True
@@ -127,42 +162,16 @@ class Player(pygame.sprite.Sprite):
                     self.speedy = 8
 
 
-class Player2(Player, pygame.sprite.Sprite):
-    def __init__(self, x, y, cycle=1):
+class Player2(Player, pygame.sprite.Sprite):  # Делаем копию класса Player с замененным управлением и спрайтами
+    def __init__(self, x, y, cycle=2):
         pygame.sprite.Sprite.__init__(self)
         Player.__init__(self, x, y, cycle)
-
-    def update(self, objects):
-        self.speedx = 0
-        keypressed = pygame.key.get_pressed()
-        if keypressed[pygame.K_a]:
-            self.speedx -= self.move_speed
-            self.image = self.animation_left[self.count_anim // 3 - 1]
-        if keypressed[pygame.K_d]:
-            self.speedx += self.move_speed
-            self.image = self.animation_right[self.count_anim // 3 - 1]
-        if keypressed[pygame.K_w]:
-            if self.onground or self.number_of_jumps < self.max_number_of_jumps and self.speedy > 0:
-                self.speedy -= self.jump_power
-                self.number_of_jumps += 1
-        if not self.onground:
-            self.speedy += self.gravity
-        self.onground = False
-
-        self.rect.y += self.speedy
-        self.collisions(0, self.speedy, objects)
-
-        self.rect.x += self.speedx
-        self.collisions(self.speedx, 0, objects)
-
-        self.count_anim += 1
-        if self.count_anim == 30:
-            self.count_anim = 0
-        if self.rect.right > width:
-            self.rect.right = width
-        if self.rect.left < 0:
-            self.rect.left = 0
-        self.max_height = max(height - self.rect.y, self.max_height)
+        self.animation_left = [pygame.image.load(f"{img_folder}/walk/player2/walk_left/{i}.png") for i in range(1, 11)]
+        self.animation_right = [pygame.image.load(f"{img_folder}/walk/player2/walk_right/{i}.png") for i in
+                                range(1, 11)]
+        self.animation_stand = [pygame.image.load(f"{img_folder}/walk/player2/stand/{i}.png") for i in range(1, 3)]
+        self.animation_jump = [pygame.image.load(f"{img_folder}/walk/player2/jump/{i}.png") for i in range(1, 3)]
+        self.management = [pygame.K_a, pygame.K_d, pygame.K_w]
 
 
 class Obstacle(pygame.sprite.Sprite):
@@ -174,7 +183,7 @@ class Obstacle(pygame.sprite.Sprite):
     metalBoxRed100x50 = pygame.image.load(f'{img_folder}/metalBoxRed100x50.png').convert()
     metalBoxGray100x100 = pygame.image.load(f'{img_folder}/metalBoxGray100x100.jpg').convert()
 
-    def __init__(self, x, y, width, height, s, type='box'):
+    def __init__(self, x, y, w, h, s, type='box'):
         pygame.sprite.Sprite.__init__(self)
         self.is_flying = False
         if type == "box":
@@ -192,10 +201,11 @@ class Obstacle(pygame.sprite.Sprite):
             else:
                 self.rect.x = randint(0, 9) * 50
         else:
-            self.image = pygame.Surface((width, height))
+            self.image = pygame.Surface((w, h))
             self.image.fill(BLACK)
             self.rect = self.image.get_rect()
             self.rect.x, self.rect.y = x, y
+        self.type = type
         self.speedy = s
 
     def update(self, objects):
@@ -216,14 +226,18 @@ class Obstacle(pygame.sprite.Sprite):
 
 
 class Button:
-    def __init__(self, width, height, inactive_color, active_color):
-        self.width, self.height = width, height
+    def __init__(self, w, h, inactive_color, active_color):
+        self.width, self.height = w, h
+        # inactive_color - стандартный цвет кнопки мыши
+        # action_color - цвет кнопки при наведении на неё курсора мыши
         self.inactive_color = inactive_color
         self.active_color = active_color
 
+    # action - функция которую нужно выполнить при нажатии на кнопку
     def draw(self, x, y, message, action=None, f_type="NaturalMonoRegular.ttf"):
         mouse = pygame.mouse.get_pos()
         click = pygame.mouse.get_pressed()
+        # При наведении курсора меняем цвет кнопки на active_color
         if x < mouse[0] < x + self.width and y < mouse[1] < y + self.height:
             draw_text(screen, x, y, message, color=self.active_color, size=self.height, f_type=f_type)
             if click[0] == 1 and action:
@@ -257,6 +271,7 @@ def game_menu():
         game_button.draw(20, 100, "Играть", game_cycle)
         game_for_2_button.draw(20, 200, "Играть вдвоём", game_cycle_2)
         exit_button.draw(20, 300, "Выйти", exit)
+
         draw_text(screen, 40, 20, "Dodge from", f_type="PerfectDOSVGA437.ttf", size=40)
         draw_text(screen, 290, 20, "Blocks", f_type="RobotronDotMatrix.otf", size=40)
 
@@ -281,7 +296,7 @@ def pause():
         clock.tick(fps)
 
 
-def game_over(cycle=1):
+def game_over(cycle=1):  #
     running = True
     drawing = True
     screen_saver_speed = 10
@@ -493,6 +508,7 @@ def game_cycle():
         else:
             screen.blit(bg2_duplicate, (0, delta_y_bg))
         screen.blit(bg2, (0, -(height - delta_y_bg)))
+
         players.draw(screen)
         barrier.draw(screen)
 
@@ -505,6 +521,7 @@ def game_cycle():
             if first_bg_isEnabled:
                 first_bg_isEnabled = False
 
+        # Заканчиваем игру если персонаж выходит за границы экрана
         if player.rect.y > height:
             running = False
             game_over()
