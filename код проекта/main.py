@@ -11,6 +11,9 @@ meters = 0
 height_meters = 40  # В пикселях
 altitude_record = 0
 
+# e - easy, n - normal, h - hard
+difficulty = "e"
+
 # Цвета
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
@@ -245,6 +248,8 @@ class Button:
                 if action == "exit":
                     pygame.quit()
                     exit()
+                if isinstance(action, tuple):
+                    return action[0](*action[1:])
                 return action()
         else:
             draw_text(screen, x, y, message, color=self.inactive_color, size=self.height, f_type=f_type)
@@ -255,6 +260,42 @@ def draw_text(screen, x, y, text, color=BLACK, f_type="NaturalMonoRegular.ttf", 
     font = pygame.font.Font(font_folder + "/" + f_type, size)
     text = font.render(text, True, color)
     screen.blit(text, (x, y))
+
+
+def start_of_the_game(difficulty_game="e", cycle=1):
+    global difficulty
+    difficulty = difficulty_game
+    if cycle == 1:
+        game_cycle()
+    else:
+        game_cycle_2()
+
+
+def difficulty_game(cycle=1):
+    easy = Button(150, 25, (200, 200, 200), WHITE)
+    normal = Button(150, 25, (200, 200, 200), WHITE)
+    hard = Button(150, 25, (200, 200, 200), WHITE)
+    exit_button = Button(100, 25, (200, 200, 200), WHITE)
+    running = True
+    screen.fill(BLACK)
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                exit()
+
+        draw_text(screen, 60, 200, "Выберите уровень сложности", color=WHITE, size=27, f_type="PerfectDOSVGA437.ttf")
+        if cycle == 1:
+            easy.draw(100, 240, "Easy", action=(start_of_the_game, "e", 1))
+            normal.draw(100, 270, "Normal", action=(start_of_the_game, "n", 1))
+            hard.draw(100, 300, "Hard", action=(start_of_the_game, "h", 1))
+        else:
+            easy.draw(100, 240, "Easy", action=(start_of_the_game, "e", 2))
+            normal.draw(100, 270, "Normal", action=(start_of_the_game, "n", 2))
+            hard.draw(100, 300, "Hard", action=(start_of_the_game, "h", 2))
+        exit_button.draw(210, 335, "Выйти", action=game_menu)
+        pygame.display.update()
+        clock.tick(fps)
 
 
 def game_menu():
@@ -272,8 +313,8 @@ def game_menu():
 
         # Рендеринг
         screen.blit(bg_menu, (0, 0))
-        game_button.draw(20, 100, "Играть", game_cycle)
-        game_for_2_button.draw(20, 200, "Играть вдвоём", game_cycle_2)
+        game_button.draw(20, 100, "Играть", (difficulty_game, 1))
+        game_for_2_button.draw(20, 200, "Играть вдвоём", (difficulty_game, 2))
         exit_button.draw(20, 300, "Выйти", action="exit")
 
         draw_text(screen, 40, 20, "Dodge from", f_type="PerfectDOSVGA437.ttf", size=40)
@@ -342,12 +383,28 @@ def game_cycle_2():
     top = 0
 
     altitude_record = 0
+    former_altitude_record = 0
+
     meters = 0
 
     # сдвиг фона
     delta_x_bg = -100
     delta_y_bg = 0
     first_bg_isEnabled = True
+
+    if difficulty == "e":
+        speed = 2000
+    elif difficulty == "n":
+        speed = 1500
+    else:
+        speed = 1000
+
+    # Создаём событие для падения блоков
+    falling_blocks = pygame.USEREVENT + 1
+    period_of_falling_blocks = speed
+    min_period_of_falling_blocks = 400
+    speed_edit_period = 100
+    pygame.time.set_timer(falling_blocks, period_of_falling_blocks)
 
     # Группы
     players = pygame.sprite.Group()
@@ -376,6 +433,10 @@ def game_cycle_2():
         dt = clock.tick(fps) / 5
         # События
         for event in pygame.event.get():
+            if event.type == falling_blocks:
+                box = Obstacle(randint(10, width - 60), -100, 50, 50, 5)
+                objects.append(box)
+                barrier.add(box)
             if event.type == pygame.QUIT:
                 running = False
                 exit()
@@ -399,11 +460,6 @@ def game_cycle_2():
             player2.max_height = 0
             top = 0
 
-        if box.speedy == 0:
-            box = Obstacle(randint(10, width - 60), -100, 50, 50, 5)
-            objects.append(box)
-            barrier.add(box)
-
         for obj in objects:
             if obj.rect.y >= 1000:
                 objects.remove(obj)
@@ -418,8 +474,12 @@ def game_cycle_2():
         players.draw(screen)
         barrier.draw(screen)
 
-        altitude_record = max(meters + player.max_height, altitude_record)
+        altitude_record = max(meters + max(player.max_height, player2.max_height), altitude_record)
         draw_text(screen, 20, 10, 'meters: ' + str(altitude_record // height_meters), LIGHT_CORAL)
+        if altitude_record // height_meters > former_altitude_record // height_meters + 20:
+            former_altitude_record = altitude_record
+            period_of_falling_blocks = max(min_period_of_falling_blocks, period_of_falling_blocks - speed_edit_period)
+            pygame.time.set_timer(falling_blocks, period_of_falling_blocks)
 
         # возврат фона
         if delta_y_bg >= height:
@@ -451,9 +511,16 @@ def game_cycle():
     delta_y_bg = 0
     first_bg_isEnabled = True
 
+    if difficulty == "e":
+        speed = 2000
+    elif difficulty == "n":
+        speed = 1500
+    else:
+        speed = 1000
+
     # Создаём событие для падения блоков
     falling_blocks = pygame.USEREVENT + 1
-    period_of_falling_blocks = 1500
+    period_of_falling_blocks = speed
     min_period_of_falling_blocks = 400
     speed_edit_period = 100
     pygame.time.set_timer(falling_blocks, period_of_falling_blocks)
