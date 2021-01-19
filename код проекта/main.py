@@ -1,6 +1,7 @@
 import os
 from random import randint, choice
 import pygame
+import sys
 
 # Базовые переменные
 size = width, height = 500, 600
@@ -56,6 +57,11 @@ def on_music(type_of_music):
 
 def off_music():
     pygame.mixer.pause()
+
+
+def terminate():
+    pygame.quit()
+    sys.exit()
 
 
 class Player(pygame.sprite.Sprite):
@@ -246,8 +252,7 @@ class Button:
             draw_text(screen, x, y, message, color=self.active_color, size=self.height, f_type=f_type)
             if click[0] == 1 and action:
                 if action == "exit":
-                    pygame.quit()
-                    exit()
+                    terminate()
                 if isinstance(action, tuple):
                     return action[0](*action[1:])
                 return action()
@@ -266,9 +271,9 @@ def start_of_the_game(difficulty_game="e", cycle=1):
     global difficulty
     difficulty = difficulty_game
     if cycle == 1:
-        game_cycle()
+        return game_cycle()
     else:
-        game_cycle_2()
+        return game_cycle_2()
 
 
 def difficulty_game(cycle=1):
@@ -281,8 +286,7 @@ def difficulty_game(cycle=1):
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                pygame.quit()
-                exit()
+                terminate()
 
         draw_text(screen, 60, 200, "Выберите уровень сложности", color=WHITE, size=27, f_type="PerfectDOSVGA437.ttf")
         if cycle == 1:
@@ -308,8 +312,7 @@ def game_menu():
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                pygame.quit()
-                exit()
+                terminate()
 
         # Рендеринг
         screen.blit(bg_menu, (0, 0))
@@ -331,8 +334,7 @@ def pause():
     while paused:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                pygame.quit()
-                exit()
+                terminate()
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_p:
                     paused = False
@@ -354,8 +356,7 @@ def game_over(cycle=1):  #
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                pygame.quit()
-                exit()
+                terminate()
 
         screen.fill(BLACK, (0, 0, x, height))
         if x >= width:
@@ -438,8 +439,7 @@ def game_cycle_2():
                 objects.append(box)
                 barrier.add(box)
             if event.type == pygame.QUIT:
-                running = False
-                exit()
+                terminate()
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_p:
                     pause()
@@ -555,8 +555,7 @@ def game_cycle():
                 objects.append(box)
                 barrier.add(box)
             if event.type == pygame.QUIT:
-                running = False
-                exit()
+                terminate()
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_p:
                     pause()
